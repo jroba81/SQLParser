@@ -123,26 +123,24 @@ namespace SQLParser
             base.Visit(node);
         }
 
-        private void ExtractFromClause(SelectStatement selectStatement)
+        private void ExtractFromClause(QueryExpression queryExpression)
         {
-            if (selectStatement is SelectStatement select)
+            if (queryExpression is QuerySpecification querySpec)
             {
-                var queryExpression = select.QueryExpression as QuerySpecification;
-                if (queryExpression?.FromClause != null)
+                if (querySpec.FromClause != null)
                 {
-                    ExtractTablesFromTableReferences(queryExpression.FromClause.TableReferences);
+                    ExtractTablesFromTableReferences(querySpec.FromClause.TableReferences);
                 }
             }
         }
 
-        private void ExtractWhereClause(SelectStatement selectStatement)
+        private void ExtractWhereClause(QueryExpression queryExpression)
         {
-            if (selectStatement is SelectStatement select)
+            if (queryExpression is QuerySpecification querySpec)
             {
-                var queryExpression = select.QueryExpression as QuerySpecification;
-                if (queryExpression?.WhereClause != null)
+                if (querySpec.WhereClause != null)
                 {
-                    ExtractWhereClauseElements(queryExpression.WhereClause);
+                    ExtractWhereClauseElements(querySpec.WhereClause);
                 }
             }
         }

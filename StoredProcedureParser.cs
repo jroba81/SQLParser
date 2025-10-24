@@ -14,7 +14,7 @@ namespace SQLParser
 
         public StoredProcedureParser()
         {
-            _parser = new TSql160Parser(quotedIdentifier: true);
+            _parser = new TSql160Parser(initialQuotedIdentifiers: true);
         }
 
         /// <summary>
