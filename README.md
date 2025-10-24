@@ -17,7 +17,7 @@ A C# tool that analyzes SQL Server stored procedures and breaks down DML stateme
 
 ## Requirements
 
-- .NET 6.0 or higher
+- .NET 8.0 or higher
 - Microsoft.SqlServer.TransactSql.ScriptDom NuGet package (automatically restored)
 
 ## Building the Project
