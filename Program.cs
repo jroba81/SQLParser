@@ -14,11 +14,17 @@ namespace SQLParser
             if (args.Length == 0)
             {
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  SQLParser <sql-file-path>           - Parse a SQL file");
-                Console.WriteLine("  SQLParser <sql-file-path> --csv     - Output as CSV format");
-                Console.WriteLine("  SQLParser --csv <sql-file-path>     - Output as CSV format (alternative syntax)");
-                Console.WriteLine("  SQLParser --example                 - Run with example stored procedures");
-                Console.WriteLine("  SQLParser --example --csv           - Run example with CSV output");
+                Console.WriteLine("  SQLParser <sql-file-path>                          - Parse a SQL file (table output)");
+                Console.WriteLine("  SQLParser <sql-file-path> --csv                    - Parse and display as CSV");
+                Console.WriteLine("  SQLParser <sql-file-path> --csv -o output.csv      - Parse and save to CSV file");
+                Console.WriteLine("  SQLParser <sql-file-path> --output results.txt     - Save table output to file");
+                Console.WriteLine("  SQLParser --example                                - Run with example stored procedures");
+                Console.WriteLine("  SQLParser --example --csv -o example.csv           - Run example and save CSV");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --csv              Output in CSV format");
+                Console.WriteLine("  --output, -o FILE  Write output to FILE instead of console");
+                Console.WriteLine("  --example          Use built-in example stored procedure");
                 Console.WriteLine();
                 return;
             }
@@ -27,12 +33,42 @@ namespace SQLParser
             bool csvFormat = args.Contains("--csv");
             bool isExample = args.Contains("--example");
 
-            // Get file path by filtering out flags
-            string? filePath = args.FirstOrDefault(arg => !arg.StartsWith("--"));
+            // Get output file path if specified
+            string? outputFile = null;
+            int outputIndex = Array.IndexOf(args, "--output");
+            if (outputIndex == -1) outputIndex = Array.IndexOf(args, "-o");
+            if (outputIndex >= 0 && outputIndex + 1 < args.Length)
+            {
+                outputFile = args[outputIndex + 1];
+            }
+
+            // Get file path by filtering out flags and their values
+            var skipNext = false;
+            string? filePath = null;
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (skipNext)
+                {
+                    skipNext = false;
+                    continue;
+                }
+
+                if (args[i] == "--output" || args[i] == "-o")
+                {
+                    skipNext = true;
+                    continue;
+                }
+
+                if (!args[i].StartsWith("--"))
+                {
+                    filePath = args[i];
+                    break;
+                }
+            }
 
             if (isExample)
             {
-                RunExamples(parser, csvFormat);
+                RunExamples(parser, csvFormat, outputFile);
                 return;
             }
 
@@ -42,10 +78,10 @@ namespace SQLParser
                 return;
             }
 
-            ParseFile(parser, filePath, csvFormat);
+            ParseFile(parser, filePath, csvFormat, outputFile);
         }
 
-        static void ParseFile(StoredProcedureParser parser, string filePath, bool csvFormat)
+        static void ParseFile(StoredProcedureParser parser, string filePath, bool csvFormat, string? outputFile)
         {
             try
             {
@@ -77,13 +113,25 @@ namespace SQLParser
 
                 Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
 
+                string output;
                 if (csvFormat)
                 {
-                    Console.WriteLine(TableFormatter.FormatAsCSV(statements));
+                    output = TableFormatter.FormatAsCSV(statements);
                 }
                 else
                 {
-                    Console.WriteLine(TableFormatter.FormatAsTable(statements));
+                    output = TableFormatter.FormatAsTable(statements);
+                }
+
+                // Write to file or console
+                if (!string.IsNullOrEmpty(outputFile))
+                {
+                    File.WriteAllText(outputFile, output);
+                    Console.WriteLine($"Output written to: {Path.GetFullPath(outputFile)}");
+                }
+                else
+                {
+                    Console.WriteLine(output);
                 }
             }
             catch (Exception ex)
@@ -92,7 +140,7 @@ namespace SQLParser
             }
         }
 
-        static void RunExamples(StoredProcedureParser parser, bool csvFormat)
+        static void RunExamples(StoredProcedureParser parser, bool csvFormat, string? outputFile)
         {
             string exampleSQL = @"
 CREATE PROCEDURE UpdateCustomerOrders
@@ -159,13 +207,25 @@ END";
 
             Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
 
+            string output;
             if (csvFormat)
             {
-                Console.WriteLine(TableFormatter.FormatAsCSV(statements));
+                output = TableFormatter.FormatAsCSV(statements);
             }
             else
             {
-                Console.WriteLine(TableFormatter.FormatAsTable(statements));
+                output = TableFormatter.FormatAsTable(statements);
+            }
+
+            // Write to file or console
+            if (!string.IsNullOrEmpty(outputFile))
+            {
+                File.WriteAllText(outputFile, output);
+                Console.WriteLine($"Output written to: {Path.GetFullPath(outputFile)}");
+            }
+            else
+            {
+                Console.WriteLine(output);
             }
         }
     }

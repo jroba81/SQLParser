@@ -49,14 +49,32 @@ dotnet run -- --example
 ### Output as CSV
 
 ```bash
-dotnet run -- --csv /path/to/your/stored_procedure.sql
+# Display CSV to console
+dotnet run -- /path/to/your/stored_procedure.sql --csv
+
+# Save CSV to a file
+dotnet run -- /path/to/your/stored_procedure.sql --csv --output results.csv
+
+# Or use the short form
+dotnet run -- /path/to/your/stored_procedure.sql --csv -o results.csv
+```
+
+### Save Output to File
+
+```bash
+# Save table format to file
+dotnet run -- /path/to/your/stored_procedure.sql --output results.txt
+
+# Save CSV format to file
+dotnet run -- /path/to/your/stored_procedure.sql --csv -o results.csv
 ```
 
 ### Command-Line Options
 
 - `<sql-file-path>` - Path to a SQL file containing stored procedure(s)
 - `--example` - Run with built-in example stored procedures
-- `--csv <sql-file-path>` - Output results in CSV format
+- `--csv` - Output results in CSV format
+- `--output FILE` or `-o FILE` - Write output to a file instead of console
 
 ## Example Output
 
