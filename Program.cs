@@ -14,30 +14,26 @@ namespace SQLParser
             if (args.Length == 0)
             {
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  SQLParser <sql-file-path>       - Parse a SQL file");
-                Console.WriteLine("  SQLParser --example             - Run with example stored procedures");
-                Console.WriteLine("  SQLParser --csv <sql-file-path> - Output as CSV format");
+                Console.WriteLine("  SQLParser <sql-file-path>           - Parse a SQL file");
+                Console.WriteLine("  SQLParser <sql-file-path> --csv     - Output as CSV format");
+                Console.WriteLine("  SQLParser --csv <sql-file-path>     - Output as CSV format (alternative syntax)");
+                Console.WriteLine("  SQLParser --example                 - Run with example stored procedures");
+                Console.WriteLine("  SQLParser --example --csv           - Run example with CSV output");
                 Console.WriteLine();
                 return;
             }
 
             var parser = new StoredProcedureParser();
             bool csvFormat = args.Contains("--csv");
-            string? filePath = null;
+            bool isExample = args.Contains("--example");
 
-            if (args[0] == "--example")
+            // Get file path by filtering out flags
+            string? filePath = args.FirstOrDefault(arg => !arg.StartsWith("--"));
+
+            if (isExample)
             {
                 RunExamples(parser, csvFormat);
                 return;
-            }
-
-            if (csvFormat && args.Length > 1)
-            {
-                filePath = args[1];
-            }
-            else if (!csvFormat)
-            {
-                filePath = args[0];
             }
 
             if (string.IsNullOrEmpty(filePath))
