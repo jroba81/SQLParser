@@ -7,7 +7,8 @@ A C# tool that analyzes SQL Server stored procedures and breaks down DML stateme
 
 ## Features
 
-- Parses SQL Server T-SQL stored procedures using Microsoft's ScriptDom library
+- Parses SQL Server T-SQL stored procedures using Microsoft's ScriptDom library (version 170.128.0)
+- Supports SQL Server 2022 (compatibility level 160) and earlier versions
 - Extracts detailed information from INSERT, UPDATE, and DELETE statements
 - Identifies columns being modified or inserted
 - Extracts all tables from FROM and JOIN clauses

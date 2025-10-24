@@ -10,11 +10,11 @@ namespace SQLParser
     /// </summary>
     public class StoredProcedureParser
     {
-        private readonly TSql150Parser _parser;
+        private readonly TSql160Parser _parser;
 
         public StoredProcedureParser()
         {
-            _parser = new TSql150Parser(quotedIdentifier: true);
+            _parser = new TSql160Parser(quotedIdentifier: true);
         }
 
         /// <summary>
