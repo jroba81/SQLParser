@@ -40,6 +40,8 @@ namespace SQLParser
             // Extract columns from SELECT statement if INSERT...SELECT
             if (node.InsertSpecification?.InsertSource is SelectInsertSource selectSource)
             {
+                // Extract SELECT columns (what's being selected to insert)
+                ExtractSelectColumns(selectSource.Select);
                 ExtractFromClause(selectSource.Select);
                 ExtractWhereClause(selectSource.Select);
             }
@@ -143,6 +145,55 @@ namespace SQLParser
                     ExtractWhereClauseElements(querySpec.WhereClause);
                 }
             }
+        }
+
+        private void ExtractSelectColumns(QueryExpression queryExpression)
+        {
+            if (_currentStatement == null) return;
+
+            if (queryExpression is QuerySpecification querySpec)
+            {
+                if (querySpec.SelectElements != null)
+                {
+                    foreach (var selectElement in querySpec.SelectElements)
+                    {
+                        if (selectElement is SelectScalarExpression scalarExpr)
+                        {
+                            // Get the column/expression being selected
+                            string columnText = GetScalarExpressionText(scalarExpr.Expression);
+
+                            // If there's an alias, show it
+                            if (scalarExpr.ColumnName != null)
+                            {
+                                columnText = $"{columnText} AS {scalarExpr.ColumnName.Value}";
+                            }
+
+                            // Add to columns list with "SELECT:" prefix to distinguish from INSERT columns
+                            if (!_currentStatement.Columns.Contains($"[SELECT] {columnText}"))
+                            {
+                                _currentStatement.Columns.Add($"[SELECT] {columnText}");
+                            }
+                        }
+                        else if (selectElement is SelectStarExpression starExpr)
+                        {
+                            // Handle SELECT *
+                            if (starExpr.Qualifier != null)
+                            {
+                                _currentStatement.Columns.Add($"[SELECT] {GetMultiPartIdentifierText(starExpr.Qualifier)}.*");
+                            }
+                            else
+                            {
+                                _currentStatement.Columns.Add("[SELECT] *");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private string GetMultiPartIdentifierText(MultiPartIdentifier identifier)
+        {
+            return string.Join(".", identifier.Identifiers.Select(i => i.Value));
         }
 
         private void ExtractTablesFromTableReferences(IList<TableReference> tableReferences)
