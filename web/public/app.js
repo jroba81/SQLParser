@@ -22,6 +22,8 @@ const nodeDetails = document.getElementById('node-details');
 const nodeDetailsContent = document.getElementById('node-details-content');
 const addWhereBtn = document.getElementById('add-where-btn');
 const resetViewBtn = document.getElementById('reset-view-btn');
+const dbTypeSelect = document.getElementById('db-type');
+const mysqlWarning = document.getElementById('mysql-warning');
 
 // Initialize Network
 function initNetwork() {
@@ -500,12 +502,23 @@ function setStatus(message, type = 'info') {
     statusBar.className = `status ${type}`;
 }
 
+// Toggle MySQL warning visibility
+function toggleMySQLWarning() {
+    if (dbTypeSelect.value === 'mysql') {
+        mysqlWarning.classList.remove('hidden');
+    } else {
+        mysqlWarning.classList.add('hidden');
+    }
+}
+
 // Event Listeners
 connectBtn.addEventListener('click', connectToDatabase);
 disconnectBtn.addEventListener('click', disconnect);
 addWhereBtn.addEventListener('click', addWhereCondition);
 resetViewBtn.addEventListener('click', resetView);
+dbTypeSelect.addEventListener('change', toggleMySQLWarning);
 
 // Initialize
 initNetwork();
+toggleMySQLWarning(); // Set initial warning state
 setStatus('Ready - Connect to a database to begin', 'info');

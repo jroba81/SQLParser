@@ -1,10 +1,17 @@
 # SQL Parser Web Interface
 
-An interactive web application for visualizing SQL Server and MySQL stored procedures as network graphs.
+An interactive web application for visualizing SQL Server stored procedures as network graphs.
+
+## ⚠️ Important Limitation
+
+**The parser only supports SQL Server T-SQL syntax.** While you can connect to and browse MySQL databases, the parser uses Microsoft's ScriptDom library which only understands SQL Server T-SQL syntax. MySQL stored procedures will not parse correctly.
+
+**Supported**: SQL Server 2012+ (T-SQL syntax)
+**Browse Only**: MySQL (connection and browsing work, but parsing will fail or return 0 statements)
 
 ## Features
 
-- **Database Connectivity**: Connect to SQL Server and MySQL databases
+- **Database Connectivity**: Connect to SQL Server databases (MySQL browsing supported but parsing is T-SQL only)
 - **Procedure Browser**: Browse and select stored procedures from your database
 - **Network Visualization**: View parsed procedures as interactive network graphs using vis.js
 - **Interactive WHERE Clauses**: Add, edit, and modify WHERE clause conditions

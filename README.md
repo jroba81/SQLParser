@@ -1,9 +1,12 @@
 # SQL Server Stored Procedure Parser
 
-A C# tool that analyzes SQL Server and MySQL stored procedures and breaks down DML statements (INSERT, UPDATE, DELETE) into a structured format showing:
+A C# tool that analyzes SQL Server stored procedures and breaks down DML statements (INSERT, UPDATE, DELETE) into a structured format showing:
 - **Columns** involved in the statement
 - **Tables** used in FROM or JOIN clauses
 - **WHERE clause** elements
+
+## ⚠️ Important Note
+**This parser only supports SQL Server T-SQL syntax.** It uses Microsoft's ScriptDom library which cannot parse MySQL, PostgreSQL, or other database syntaxes. While the web interface allows browsing MySQL databases, parsing will only work correctly with SQL Server stored procedures.
 
 ## Features
 
@@ -19,12 +22,14 @@ A C# tool that analyzes SQL Server and MySQL stored procedures and breaks down D
 
 ### Web Interface 🌐 NEW!
 - **Interactive network visualization** of stored procedures using vis.js
-- **Connect to live databases** (SQL Server and MySQL)
+- **Connect to SQL Server databases** (MySQL browsing supported but parsing is T-SQL only)
 - **Browse and select** stored procedures from your database
 - **Visual graph view** showing relationships between statements, tables, columns, and WHERE clauses
 - **Edit WHERE clauses** interactively by double-clicking nodes
 - **Add custom WHERE conditions** to visualize different scenarios
 - Real-time parsing and visualization
+
+**Note**: Web interface allows MySQL database connections for browsing, but parsing only works with SQL Server T-SQL syntax.
 
 See [web/README.md](web/README.md) for web interface documentation.
 

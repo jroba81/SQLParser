@@ -269,8 +269,11 @@
                     <label>Database Type</label>
                     <select id="db-type">
                         <option value="sqlserver">SQL Server</option>
-                        <option value="mysql">MySQL</option>
+                        <option value="mysql" title="MySQL connection supported, but parsing uses T-SQL syntax only">MySQL (Browse Only - Parser is T-SQL only)</option>
                     </select>
+                    <p style="font-size: 11px; color: #e74c3c; margin-top: 5px;" id="mysql-warning" class="hidden">
+                        ⚠️ Note: The parser only supports SQL Server T-SQL syntax. You can browse MySQL procedures but parsing may not work correctly.
+                    </p>
                 </div>
                 <div class="form-group">
                     <label>Host</label>
