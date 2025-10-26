@@ -71,8 +71,15 @@ namespace SQLParser
                 }
             }
 
-            // Handle stdin mode (for web server)
-            if (stdinMode || jsonFormat)
+            // Handle --example flag first
+            if (isExample)
+            {
+                RunExamples(parser, csvFormat, jsonFormat, outputFile);
+                return;
+            }
+
+            // Handle stdin mode (for web server) - only if explicitly requested or no file path
+            if (stdinMode || (string.IsNullOrEmpty(filePath) && (jsonFormat || csvFormat)))
             {
                 string sqlText = Console.In.ReadToEnd();
                 var (statements, errors) = parser.ParseStoredProcedure(sqlText);
@@ -81,24 +88,14 @@ namespace SQLParser
                 {
                     OutputJson(statements, errors);
                 }
+                else if (csvFormat)
+                {
+                    Console.WriteLine(TableFormatter.FormatAsCSV(statements));
+                }
                 else
                 {
-                    // Regular output for stdin mode
-                    if (csvFormat)
-                    {
-                        Console.WriteLine(TableFormatter.FormatAsCSV(statements));
-                    }
-                    else
-                    {
-                        Console.WriteLine(TableFormatter.FormatAsTable(statements));
-                    }
+                    Console.WriteLine(TableFormatter.FormatAsTable(statements));
                 }
-                return;
-            }
-
-            if (isExample)
-            {
-                RunExamples(parser, csvFormat, jsonFormat, outputFile);
                 return;
             }
 
