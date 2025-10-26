@@ -11,8 +11,14 @@ namespace SQLParser
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("SQL Server Stored Procedure Parser");
-            Console.WriteLine("===================================\n");
+            // Check for JSON mode early to suppress header
+            bool jsonMode = args.Contains("--json");
+
+            if (!jsonMode)
+            {
+                Console.WriteLine("SQL Server Stored Procedure Parser");
+                Console.WriteLine("===================================\n");
+            }
 
             if (args.Length == 0)
             {
@@ -144,15 +150,17 @@ namespace SQLParser
             {
                 if (!File.Exists(filePath))
                 {
-                    Console.WriteLine($"Error: File not found - {filePath}");
+                    if (!jsonFormat)
+                        Console.WriteLine($"Error: File not found - {filePath}");
                     return;
                 }
 
-                Console.WriteLine($"Parsing: {filePath}\n");
+                if (!jsonFormat)
+                    Console.WriteLine($"Parsing: {filePath}\n");
 
                 var (statements, errors) = parser.ParseStoredProcedureFromFile(filePath);
 
-                if (errors.Count > 0)
+                if (errors.Count > 0 && !jsonFormat)
                 {
                     Console.WriteLine("Parse Errors:");
                     foreach (var error in errors)
@@ -162,13 +170,14 @@ namespace SQLParser
                     Console.WriteLine();
                 }
 
-                if (statements.Count == 0)
+                if (statements.Count == 0 && !jsonFormat)
                 {
                     Console.WriteLine("No DML statements (INSERT, UPDATE, DELETE) found in the file.");
                     return;
                 }
 
-                Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
+                if (!jsonFormat)
+                    Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
 
                 if (jsonFormat)
                 {
@@ -255,11 +264,12 @@ BEGIN
         AND (i.LocationId = c.DefaultLocationId OR c.DefaultLocationId IS NULL);
 END";
 
-            Console.WriteLine("Parsing example stored procedure...\n");
+            if (!jsonFormat)
+                Console.WriteLine("Parsing example stored procedure...\n");
 
             var (statements, errors) = parser.ParseStoredProcedure(exampleSQL);
 
-            if (errors.Count > 0)
+            if (errors.Count > 0 && !jsonFormat)
             {
                 Console.WriteLine("Parse Errors:");
                 foreach (var error in errors)
@@ -269,7 +279,8 @@ END";
                 Console.WriteLine();
             }
 
-            Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
+            if (!jsonFormat)
+                Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
 
             if (jsonFormat)
             {

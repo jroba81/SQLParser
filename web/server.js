@@ -178,10 +178,12 @@ app.post('/api/parse', async (req, res) => {
     const { sqlText } = req.body;
 
     try {
-        // Call the C# parser
-        const parserPath = path.join(__dirname, '..', 'bin', 'Debug', 'net8.0', 'SQLParser');
-        const child = spawn('dotnet', [parserPath, '--json'], {
-            cwd: path.join(__dirname, '..')
+        // Call the C# parser using dotnet run
+        const projectPath = path.join(__dirname, '..');
+
+        const child = spawn('dotnet', ['run', '--', '--json', '--stdin'], {
+            cwd: projectPath,
+            shell: true
         });
 
         let stdout = '';
@@ -201,23 +203,58 @@ app.post('/api/parse', async (req, res) => {
 
         child.on('close', (code) => {
             if (code !== 0) {
+                console.error('Parser stderr:', stderr);
                 return res.status(500).json({
                     success: false,
                     message: 'Parser failed',
-                    error: stderr
+                    error: stderr,
+                    exitCode: code
                 });
             }
 
             try {
-                const parsed = JSON.parse(stdout);
+                // Extract JSON from output (skip the header lines)
+                const lines = stdout.split('\n');
+                let jsonStart = -1;
+
+                // Find the first line that starts with '{'
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim().startsWith('{')) {
+                        jsonStart = i;
+                        break;
+                    }
+                }
+
+                if (jsonStart === -1) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'No JSON found in parser output',
+                        output: stdout
+                    });
+                }
+
+                const jsonOutput = lines.slice(jsonStart).join('\n');
+                const parsed = JSON.parse(jsonOutput);
                 res.json({ success: true, data: parsed });
             } catch (e) {
+                console.error('JSON parse error:', e);
+                console.error('Output was:', stdout);
                 res.status(500).json({
                     success: false,
                     message: 'Failed to parse JSON output',
+                    error: e.message,
                     output: stdout
                 });
             }
+        });
+
+        child.on('error', (error) => {
+            console.error('Spawn error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to start parser',
+                error: error.message
+            });
         });
 
     } catch (error) {
