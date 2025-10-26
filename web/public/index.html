@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Stored Procedure Parser - Interactive Network Viewer</title>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #bdc3c7;
+            font-size: 14px;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .panel {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .panel h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #95a5a6;
+        }
+
+        button.secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .procedures-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .procedure-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .procedure-item:hover {
+            background: #f8f9fa;
+        }
+
+        .procedure-item.selected {
+            background: #e3f2fd;
+            border-left: 3px solid #3498db;
+        }
+
+        .procedure-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .procedure-schema {
+            font-size: 11px;
+            color: #7f8c8d;
+        }
+
+        #network {
+            flex: 1;
+            background: white;
+        }
+
+        .status {
+            padding: 10px;
+            background: #ecf0f1;
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .legend h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .controls button {
+            width: auto;
+            margin: 5px;
+            padding: 8px 15px;
+        }
+
+        #node-details {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #ddd;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #node-details h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        #node-details p {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .where-clause-editor {
+            margin-top: 15px;
+        }
+
+        .where-clause-editor textarea {
+            width: 100%;
+            height: 60px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SQL Stored Procedure Parser</h1>
+        <p class="subtitle">Interactive Network Visualization</p>
+    </header>
+
+    <div class="container">
+        <div class="sidebar">
+            <!-- Database Connection Panel -->
+            <div class="panel">
+                <h2>Database Connection</h2>
+                <div class="form-group">
+                    <label>Database Type</label>
+                    <select id="db-type">
+                        <option value="sqlserver">SQL Server</option>
+                        <option value="mysql">MySQL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Host</label>
+                    <input type="text" id="db-host" value="localhost" placeholder="localhost">
+                </div>
+                <div class="form-group">
+                    <label>Port</label>
+                    <input type="number" id="db-port" placeholder="1433 (SQL) or 3306 (MySQL)">
+                </div>
+                <div class="form-group">
+                    <label>Database</label>
+                    <input type="text" id="db-database" placeholder="database name">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="db-username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="db-password">
+                </div>
+                <button id="connect-btn">Connect</button>
+                <button id="disconnect-btn" class="secondary hidden" style="margin-top: 10px;">Disconnect</button>
+            </div>
+
+            <!-- Stored Procedures Panel -->
+            <div class="panel hidden" id="procedures-panel">
+                <h2>Stored Procedures</h2>
+                <div id="procedures-list" class="procedures-list">
+                    <p style="padding: 20px; text-align: center; color: #7f8c8d;">Loading...</p>
+                </div>
+            </div>
+
+            <!-- Node Details Panel -->
+            <div id="node-details" class="hidden">
+                <h3>Node Details</h3>
+                <div id="node-details-content"></div>
+            </div>
+        </div>
+
+        <div style="flex: 1; position: relative;">
+            <div id="network"></div>
+
+            <div class="controls">
+                <button id="add-where-btn" title="Add WHERE clause condition">+ Add WHERE Condition</button>
+                <button id="reset-view-btn" class="secondary" title="Reset view">Reset View</button>
+            </div>
+
+            <div class="legend">
+                <h3>Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3498db;"></div>
+                    <span>INSERT Statement</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e67e22;"></div>
+                    <span>UPDATE Statement</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e74c3c;"></div>
+                    <span>DELETE Statement</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2ecc71;"></div>
+                    <span>Table</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #9b59b6;"></div>
+                    <span>Column</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f39c12;"></div>
+                    <span>WHERE Clause</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status" id="status">Ready</div>
+
+    <script src="app.js"></script>
+</body>
+</html>

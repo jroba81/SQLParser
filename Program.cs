@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SQLParser
 {
@@ -31,7 +33,9 @@ namespace SQLParser
 
             var parser = new StoredProcedureParser();
             bool csvFormat = args.Contains("--csv");
+            bool jsonFormat = args.Contains("--json");
             bool isExample = args.Contains("--example");
+            bool stdinMode = args.Contains("--stdin");
 
             // Get output file path if specified
             string? outputFile = null;
@@ -66,9 +70,34 @@ namespace SQLParser
                 }
             }
 
+            // Handle stdin mode (for web server)
+            if (stdinMode || jsonFormat)
+            {
+                string sqlText = Console.In.ReadToEnd();
+                var (statements, errors) = parser.ParseStoredProcedure(sqlText);
+
+                if (jsonFormat)
+                {
+                    OutputJson(statements, errors);
+                }
+                else
+                {
+                    // Regular output for stdin mode
+                    if (csvFormat)
+                    {
+                        Console.WriteLine(TableFormatter.FormatAsCSV(statements));
+                    }
+                    else
+                    {
+                        Console.WriteLine(TableFormatter.FormatAsTable(statements));
+                    }
+                }
+                return;
+            }
+
             if (isExample)
             {
-                RunExamples(parser, csvFormat, outputFile);
+                RunExamples(parser, csvFormat, jsonFormat, outputFile);
                 return;
             }
 
@@ -78,10 +107,40 @@ namespace SQLParser
                 return;
             }
 
-            ParseFile(parser, filePath, csvFormat, outputFile);
+            ParseFile(parser, filePath, csvFormat, jsonFormat, outputFile);
         }
 
-        static void ParseFile(StoredProcedureParser parser, string filePath, bool csvFormat, string? outputFile)
+        static void OutputJson(List<ParsedStatement> statements, List<Microsoft.SqlServer.TransactSql.ScriptDom.ParseError> errors)
+        {
+            var output = new
+            {
+                success = errors.Count == 0,
+                errors = errors.Select(e => new
+                {
+                    line = e.Line,
+                    column = e.Column,
+                    message = e.Message
+                }).ToList(),
+                statements = statements.Select(s => new
+                {
+                    statementType = s.StatementType,
+                    lineNumber = s.LineNumber,
+                    columns = s.Columns,
+                    tables = s.Tables,
+                    whereClauseElements = s.WhereClauseElements
+                }).ToList()
+            };
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            Console.WriteLine(JsonSerializer.Serialize(output, options));
+        }
+
+        static void ParseFile(StoredProcedureParser parser, string filePath, bool csvFormat, bool jsonFormat, string? outputFile)
         {
             try
             {
@@ -113,25 +172,32 @@ namespace SQLParser
 
                 Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
 
-                string output;
-                if (csvFormat)
+                if (jsonFormat)
                 {
-                    output = TableFormatter.FormatAsCSV(statements);
+                    OutputJson(statements, errors);
                 }
                 else
                 {
-                    output = TableFormatter.FormatAsTable(statements);
-                }
+                    string output;
+                    if (csvFormat)
+                    {
+                        output = TableFormatter.FormatAsCSV(statements);
+                    }
+                    else
+                    {
+                        output = TableFormatter.FormatAsTable(statements);
+                    }
 
-                // Write to file or console
-                if (!string.IsNullOrEmpty(outputFile))
-                {
-                    File.WriteAllText(outputFile, output);
-                    Console.WriteLine($"Output written to: {Path.GetFullPath(outputFile)}");
-                }
-                else
-                {
-                    Console.WriteLine(output);
+                    // Write to file or console
+                    if (!string.IsNullOrEmpty(outputFile))
+                    {
+                        File.WriteAllText(outputFile, output);
+                        Console.WriteLine($"Output written to: {Path.GetFullPath(outputFile)}");
+                    }
+                    else
+                    {
+                        Console.WriteLine(output);
+                    }
                 }
             }
             catch (Exception ex)
@@ -140,7 +206,7 @@ namespace SQLParser
             }
         }
 
-        static void RunExamples(StoredProcedureParser parser, bool csvFormat, string? outputFile)
+        static void RunExamples(StoredProcedureParser parser, bool csvFormat, bool jsonFormat, string? outputFile)
         {
             string exampleSQL = @"
 CREATE PROCEDURE UpdateCustomerOrders
@@ -207,25 +273,32 @@ END";
 
             Console.WriteLine($"Found {statements.Count} DML statement(s):\n");
 
-            string output;
-            if (csvFormat)
+            if (jsonFormat)
             {
-                output = TableFormatter.FormatAsCSV(statements);
+                OutputJson(statements, errors);
             }
             else
             {
-                output = TableFormatter.FormatAsTable(statements);
-            }
+                string output;
+                if (csvFormat)
+                {
+                    output = TableFormatter.FormatAsCSV(statements);
+                }
+                else
+                {
+                    output = TableFormatter.FormatAsTable(statements);
+                }
 
-            // Write to file or console
-            if (!string.IsNullOrEmpty(outputFile))
-            {
-                File.WriteAllText(outputFile, output);
-                Console.WriteLine($"Output written to: {Path.GetFullPath(outputFile)}");
-            }
-            else
-            {
-                Console.WriteLine(output);
+                // Write to file or console
+                if (!string.IsNullOrEmpty(outputFile))
+                {
+                    File.WriteAllText(outputFile, output);
+                    Console.WriteLine($"Output written to: {Path.GetFullPath(outputFile)}");
+                }
+                else
+                {
+                    Console.WriteLine(output);
+                }
             }
         }
     }
