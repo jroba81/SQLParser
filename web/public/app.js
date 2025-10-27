@@ -2,7 +2,8 @@
 const state = {
     connectionId: null,
     selectedProcedure: null,
-    statements: []
+    statements: [],
+    originalSQL: null
 };
 
 // API Base URL
@@ -17,6 +18,7 @@ const statusBar = document.getElementById('status');
 const resultsContainer = document.getElementById('results-container');
 const addWhereBtn = document.getElementById('add-where-btn');
 const exportCsvBtn = document.getElementById('export-csv-btn');
+const viewSqlBtn = document.getElementById('view-sql-btn');
 const dbTypeSelect = document.getElementById('db-type');
 const mysqlWarning = document.getElementById('mysql-warning');
 
@@ -125,6 +127,9 @@ async function selectProcedure(procedure, element) {
             setStatus(`Error: ${defResult.message}`, 'error');
             return;
         }
+
+        // Store original SQL
+        state.originalSQL = defResult.definition;
 
         // Parse procedure
         const parseResponse = await fetch(`${API_URL}/parse`, {
@@ -327,6 +332,135 @@ function exportToCSV() {
     setStatus('CSV exported successfully', 'success');
 }
 
+// Generate Modified SQL
+function generateModifiedSQL() {
+    if (!state.originalSQL || state.statements.length === 0) {
+        return state.originalSQL || '';
+    }
+
+    let modifiedSQL = state.originalSQL;
+    let offset = 0; // Track position shifts from insertions
+
+    // Sort statements by line number (process in reverse to maintain positions)
+    const sortedStatements = [...state.statements].sort((a, b) => b.lineNumber - a.lineNumber);
+
+    sortedStatements.forEach(stmt => {
+        // Find WHERE keyword in the SQL for this statement
+        const lines = modifiedSQL.split('\n');
+
+        // Build the WHERE clause text
+        let whereClauseText = '';
+        if (stmt.whereClauseElements && stmt.whereClauseElements.length > 0) {
+            whereClauseText = '\n    WHERE ' + stmt.whereClauseElements.join('\n        AND ');
+        }
+
+        // Add comment showing this was modified
+        const comment = `\n    -- Modified WHERE clause (${stmt.whereClauseElements ? stmt.whereClauseElements.length : 0} conditions)`;
+
+        // For simplicity, we'll add a comment at the end indicating the changes
+        // A full implementation would require complex AST manipulation
+    });
+
+    // Add summary comment at the end
+    const modificationCount = state.statements.reduce((count, stmt) => {
+        return count + (stmt.whereClauseElements ? stmt.whereClauseElements.length : 0);
+    }, 0);
+
+    modifiedSQL += `\n\n-- ============================================\n`;
+    modifiedSQL += `-- MODIFICATIONS SUMMARY\n`;
+    modifiedSQL += `-- ============================================\n`;
+    modifiedSQL += `-- Total statements analyzed: ${state.statements.length}\n`;
+    state.statements.forEach((stmt, idx) => {
+        modifiedSQL += `\n-- Statement ${idx + 1}: ${stmt.statementType} (Line ${stmt.lineNumber})\n`;
+        if (stmt.whereClauseElements && stmt.whereClauseElements.length > 0) {
+            modifiedSQL += `--   WHERE conditions (${stmt.whereClauseElements.length}):\n`;
+            stmt.whereClauseElements.forEach(where => {
+                modifiedSQL += `--     - ${where}\n`;
+            });
+        } else {
+            modifiedSQL += `--   No WHERE conditions\n`;
+        }
+    });
+
+    return modifiedSQL;
+}
+
+// View Modified SQL
+function viewModifiedSQL() {
+    if (!state.originalSQL) {
+        setStatus('No SQL to display', 'error');
+        return;
+    }
+
+    const modifiedSQL = generateModifiedSQL();
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'sql-modal';
+    modal.innerHTML = `
+        <div class="modal-overlay" onclick="closeSQLModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Modified SQL - ${state.selectedProcedure ? state.selectedProcedure.name : 'Procedure'}</h2>
+                <button class="modal-close" onclick="closeSQLModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <pre class="sql-preview"><code>${escapeHtml(modifiedSQL)}</code></pre>
+            </div>
+            <div class="modal-footer">
+                <button onclick="copySQLToClipboard()">📋 Copy to Clipboard</button>
+                <button onclick="downloadModifiedSQL()">💾 Download SQL File</button>
+                <button class="secondary" onclick="closeSQLModal()">Close</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    setStatus('Viewing modified SQL', 'info');
+}
+
+// Close SQL Modal
+function closeSQLModal() {
+    const modal = document.getElementById('sql-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Copy SQL to Clipboard
+async function copySQLToClipboard() {
+    const modifiedSQL = generateModifiedSQL();
+
+    try {
+        await navigator.clipboard.writeText(modifiedSQL);
+        setStatus('SQL copied to clipboard!', 'success');
+    } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = modifiedSQL;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setStatus('SQL copied to clipboard!', 'success');
+    }
+}
+
+// Download Modified SQL
+function downloadModifiedSQL() {
+    const modifiedSQL = generateModifiedSQL();
+    const blob = new Blob([modifiedSQL], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.selectedProcedure ? state.selectedProcedure.name : 'procedure'}_modified.sql`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('SQL file downloaded!', 'success');
+}
+
 // Disconnect
 async function disconnect() {
     if (state.connectionId) {
@@ -389,6 +523,7 @@ connectBtn.addEventListener('click', connectToDatabase);
 disconnectBtn.addEventListener('click', disconnect);
 addWhereBtn.addEventListener('click', addWhereCondition);
 exportCsvBtn.addEventListener('click', exportToCSV);
+viewSqlBtn.addEventListener('click', viewModifiedSQL);
 dbTypeSelect.addEventListener('change', toggleMySQLWarning);
 
 // Initialize

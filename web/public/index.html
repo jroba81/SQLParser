@@ -417,6 +417,123 @@
         .hidden {
             display: none;
         }
+
+        /* Modal Styles */
+        #sql-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            animation: fadeIn 0.2s;
+        }
+
+        .modal-content {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 32px;
+            color: #7f8c8d;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .modal-body {
+            padding: 20px 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .sql-preview {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .sql-preview code {
+            color: #ecf0f1;
+        }
+
+        .modal-footer {
+            padding: 15px 30px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer button {
+            padding: 10px 20px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -481,7 +598,8 @@
 
         <div style="flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column;">
             <div class="controls">
-                <button id="export-csv-btn" title="Export to CSV">Export CSV</button>
+                <button id="view-sql-btn" title="View modified SQL">📄 View SQL</button>
+                <button id="export-csv-btn" title="Export to CSV">📊 Export CSV</button>
                 <button id="add-where-btn" title="Add WHERE clause condition">+ Add WHERE</button>
             </div>
 
