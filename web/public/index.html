@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQL Stored Procedure Parser - Interactive Network Viewer</title>
-    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <title>SQL Stored Procedure Parser - Table Viewer</title>
     <style>
         * {
             margin: 0;
@@ -146,9 +145,177 @@
             color: #7f8c8d;
         }
 
-        #network {
-            flex: 1;
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
             background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .results-table thead {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .results-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #34495e;
+        }
+
+        .results-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ecf0f1;
+            vertical-align: top;
+            font-size: 13px;
+        }
+
+        .results-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .statement-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+            color: white;
+        }
+
+        .statement-type.insert {
+            background: #3498db;
+        }
+
+        .statement-type.update {
+            background: #e67e22;
+        }
+
+        .statement-type.delete {
+            background: #e74c3c;
+        }
+
+        .line-number {
+            display: block;
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        .cell-content {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .item-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .item-list li {
+            padding: 4px 0;
+            border-bottom: 1px dashed #ecf0f1;
+        }
+
+        .item-list li:last-child {
+            border-bottom: none;
+        }
+
+        .where-item {
+            display: flex;
+            align-items: center;
+            padding: 6px;
+            background: #fff9e6;
+            border-left: 3px solid #f39c12;
+            margin-bottom: 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .where-item:hover {
+            background: #fff3cd;
+        }
+
+        .where-item.editable {
+            cursor: pointer;
+        }
+
+        .where-item-text {
+            flex: 1;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .where-item-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .where-item-actions button {
+            padding: 2px 8px;
+            font-size: 11px;
+            background: #f39c12;
+            border: none;
+            border-radius: 3px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .where-item-actions button:hover {
+            background: #e67e22;
+        }
+
+        .where-item-actions button.delete {
+            background: #e74c3c;
+        }
+
+        .where-item-actions button.delete:hover {
+            background: #c0392b;
+        }
+
+        .add-where-inline {
+            padding: 8px;
+            background: #e8f5e9;
+            border: 1px dashed #4caf50;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: #2e7d32;
+            transition: all 0.2s;
+        }
+
+        .add-where-inline:hover {
+            background: #c8e6c9;
+            border-style: solid;
+        }
+
+        .column-item {
+            padding: 3px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .column-item.select {
+            color: #9b59b6;
+            font-weight: 600;
+        }
+
+        .table-item {
+            padding: 3px 8px;
+            background: #e8f5e9;
+            border-radius: 3px;
+            display: inline-block;
+            margin: 2px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #2e7d32;
         }
 
         .status {
@@ -177,6 +344,7 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 10;
         }
 
         .legend h3 {
@@ -200,18 +368,15 @@
         }
 
         .controls {
-            position: absolute;
-            top: 20px;
-            right: 20px;
+            padding: 15px 20px;
             background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
         }
 
         .controls button {
             width: auto;
-            margin: 5px;
             padding: 8px 15px;
         }
 
@@ -257,7 +422,7 @@
 <body>
     <header>
         <h1>SQL Stored Procedure Parser</h1>
-        <p class="subtitle">Interactive Network Visualization</p>
+        <p class="subtitle">Interactive Table View</p>
     </header>
 
     <div class="container">
@@ -314,16 +479,23 @@
             </div>
         </div>
 
-        <div style="flex: 1; position: relative;">
-            <div id="network"></div>
-
+        <div style="flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column;">
             <div class="controls">
-                <button id="add-where-btn" title="Add WHERE clause condition">+ Add WHERE Condition</button>
-                <button id="reset-view-btn" class="secondary" title="Reset view">Reset View</button>
+                <button id="export-csv-btn" title="Export to CSV">Export CSV</button>
+                <button id="add-where-btn" title="Add WHERE clause condition">+ Add WHERE</button>
+            </div>
+
+            <div style="flex: 1; overflow: auto; padding: 20px;">
+                <div id="results-container">
+                    <div style="text-align: center; padding: 60px 20px; color: #7f8c8d;">
+                        <h3 style="margin-bottom: 10px;">No Data</h3>
+                        <p>Connect to a database and select a stored procedure to view parsed statements</p>
+                    </div>
+                </div>
             </div>
 
             <div class="legend">
-                <h3>Legend</h3>
+                <h3>Statement Types</h3>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #3498db;"></div>
                     <span>INSERT Statement</span>
@@ -335,18 +507,6 @@
                 <div class="legend-item">
                     <div class="legend-color" style="background: #e74c3c;"></div>
                     <span>DELETE Statement</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #2ecc71;"></div>
-                    <span>Table</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #9b59b6;"></div>
-                    <span>Column</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #f39c12;"></div>
-                    <span>WHERE Clause</span>
                 </div>
             </div>
         </div>

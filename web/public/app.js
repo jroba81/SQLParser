@@ -2,10 +2,7 @@
 const state = {
     connectionId: null,
     selectedProcedure: null,
-    network: null,
-    nodes: null,
-    edges: null,
-    nodeIdCounter: 1000
+    statements: []
 };
 
 // API Base URL
@@ -17,77 +14,11 @@ const disconnectBtn = document.getElementById('disconnect-btn');
 const proceduresPanel = document.getElementById('procedures-panel');
 const proceduresList = document.getElementById('procedures-list');
 const statusBar = document.getElementById('status');
-const networkContainer = document.getElementById('network');
-const nodeDetails = document.getElementById('node-details');
-const nodeDetailsContent = document.getElementById('node-details-content');
+const resultsContainer = document.getElementById('results-container');
 const addWhereBtn = document.getElementById('add-where-btn');
-const resetViewBtn = document.getElementById('reset-view-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 const dbTypeSelect = document.getElementById('db-type');
 const mysqlWarning = document.getElementById('mysql-warning');
-
-// Initialize Network
-function initNetwork() {
-    const data = {
-        nodes: new vis.DataSet([]),
-        edges: new vis.DataSet([])
-    };
-
-    const options = {
-        nodes: {
-            shape: 'box',
-            margin: 10,
-            font: {
-                size: 14,
-                face: 'Segoe UI'
-            },
-            borderWidth: 2,
-            shadow: true
-        },
-        edges: {
-            arrows: 'to',
-            smooth: {
-                type: 'cubicBezier',
-                roundness: 0.5
-            },
-            color: {
-                color: '#848484',
-                highlight: '#2980b9'
-            },
-            width: 2
-        },
-        physics: {
-            enabled: true,
-            stabilization: {
-                enabled: true,
-                iterations: 200
-            },
-            barnesHut: {
-                gravitationalConstant: -2000,
-                centralGravity: 0.3,
-                springLength: 150,
-                springConstant: 0.04
-            }
-        },
-        interaction: {
-            hover: true,
-            navigationButtons: true,
-            keyboard: true
-        },
-        layout: {
-            hierarchical: {
-                enabled: false
-            }
-        }
-    };
-
-    state.network = new vis.Network(networkContainer, data, options);
-    state.nodes = data.nodes;
-    state.edges = data.edges;
-
-    // Event listeners
-    state.network.on('click', onNodeClick);
-    state.network.on('doubleClick', onNodeDoubleClick);
-}
 
 // Connect to Database
 async function connectToDatabase() {
@@ -171,16 +102,16 @@ function displayProcedures(procedures) {
             <div class="procedure-name">${proc.name}</div>
             <div class="procedure-schema">${proc.schema}</div>
         `;
-        div.addEventListener('click', () => selectProcedure(proc));
+        div.addEventListener('click', () => selectProcedure(proc, div));
         proceduresList.appendChild(div);
     });
 }
 
 // Select and Parse Procedure
-async function selectProcedure(procedure) {
+async function selectProcedure(procedure, element) {
     // Update UI
     document.querySelectorAll('.procedure-item').forEach(el => el.classList.remove('selected'));
-    event.currentTarget.classList.add('selected');
+    element.classList.add('selected');
 
     state.selectedProcedure = procedure;
     setStatus(`Loading ${procedure.name}...`, 'info');
@@ -205,265 +136,195 @@ async function selectProcedure(procedure) {
         const parseResult = await parseResponse.json();
 
         if (parseResult.success) {
-            visualizeStatements(parseResult.data.statements, procedure.name);
+            state.statements = parseResult.data.statements;
+            displayStatementsTable(parseResult.data.statements, procedure.name);
             setStatus(`Parsed ${parseResult.data.statements.length} statements`, 'success');
         } else {
             setStatus(`Parse error: ${parseResult.message}`, 'error');
+            resultsContainer.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px; color: #e74c3c;">
+                    <h3 style="margin-bottom: 10px;">Parse Error</h3>
+                    <p>${parseResult.message}</p>
+                </div>
+            `;
         }
     } catch (error) {
         setStatus(`Error: ${error.message}`, 'error');
     }
 }
 
-// Visualize Statements as Network
-function visualizeStatements(statements, procedureName) {
-    state.nodes.clear();
-    state.edges.clear();
-
+// Display Statements as Table
+function displayStatementsTable(statements, procedureName) {
     if (statements.length === 0) {
-        setStatus('No DML statements found', 'info');
+        resultsContainer.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: #7f8c8d;">
+                <h3 style="margin-bottom: 10px;">No DML Statements Found</h3>
+                <p>The parser found no INSERT, UPDATE, or DELETE statements in this procedure.</p>
+                <p style="margin-top: 10px; font-size: 12px;">Note: Only T-SQL syntax is supported.</p>
+            </div>
+        `;
         return;
     }
 
-    const colors = {
-        INSERT: '#3498db',
-        UPDATE: '#e67e22',
-        DELETE: '#e74c3c',
-        table: '#2ecc71',
-        column: '#9b59b6',
-        where: '#f39c12'
-    };
-
-    // Add procedure node
-    const procNodeId = `proc_${procedureName}`;
-    state.nodes.add({
-        id: procNodeId,
-        label: procedureName,
-        color: '#34495e',
-        font: { size: 16, color: 'white' },
-        level: 0
-    });
+    let html = `
+        <h2 style="margin-bottom: 20px; color: #2c3e50;">${procedureName}</h2>
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Statement</th>
+                    <th style="width: 20%;">Columns</th>
+                    <th style="width: 25%;">Tables</th>
+                    <th style="width: 40%;">WHERE Clause</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
     statements.forEach((stmt, index) => {
-        // Statement node
-        const stmtId = `stmt_${index}`;
-        state.nodes.add({
-            id: stmtId,
-            label: `${stmt.statementType}\\nLine ${stmt.lineNumber}`,
-            color: colors[stmt.statementType],
-            font: { color: 'white' },
-            level: 1,
-            data: stmt
-        });
+        const stmtType = stmt.statementType.toLowerCase();
 
-        state.edges.add({
-            from: procNodeId,
-            to: stmtId,
-            label: `Statement ${index + 1}`
-        });
+        html += `<tr data-index="${index}">`;
 
-        // Tables
-        const tableIds = [];
-        stmt.tables.forEach(table => {
-            const tableId = `table_${index}_${table}`;
-            tableIds.push(tableId);
+        // Statement column
+        html += `
+            <td>
+                <span class="statement-type ${stmtType}">${stmt.statementType}</span>
+                <span class="line-number">Line ${stmt.lineNumber}</span>
+            </td>
+        `;
 
-            state.nodes.add({
-                id: tableId,
-                label: table,
-                color: colors.table,
-                font: { color: 'white' },
-                level: 2,
-                data: { type: 'table', value: table, statementIndex: index }
+        // Columns column
+        html += `<td><div class="cell-content">`;
+        if (stmt.columns && stmt.columns.length > 0) {
+            stmt.columns.forEach(col => {
+                const isSelect = col.startsWith('[SELECT]');
+                html += `<div class="column-item ${isSelect ? 'select' : ''}">${col}</div>`;
             });
+        } else {
+            html += '<span style="color: #95a5a6; font-style: italic;">None</span>';
+        }
+        html += `</div></td>`;
 
-            state.edges.add({
-                from: stmtId,
-                to: tableId,
-                label: 'uses'
+        // Tables column
+        html += `<td><div class="cell-content">`;
+        if (stmt.tables && stmt.tables.length > 0) {
+            stmt.tables.forEach(table => {
+                html += `<span class="table-item">${table}</span>`;
             });
-        });
+        } else {
+            html += '<span style="color: #95a5a6; font-style: italic;">None</span>';
+        }
+        html += `</div></td>`;
 
-        // Columns
-        stmt.columns.forEach((column, colIdx) => {
-            const colId = `col_${index}_${colIdx}`;
-
-            state.nodes.add({
-                id: colId,
-                label: column,
-                color: colors.column,
-                font: { color: 'white' },
-                level: 3,
-                data: { type: 'column', value: column, statementIndex: index }
+        // WHERE clause column
+        html += `<td><div class="cell-content">`;
+        if (stmt.whereClauseElements && stmt.whereClauseElements.length > 0) {
+            stmt.whereClauseElements.forEach((where, whereIndex) => {
+                html += `
+                    <div class="where-item editable" data-stmt-index="${index}" data-where-index="${whereIndex}">
+                        <div class="where-item-text">${escapeHtml(where)}</div>
+                        <div class="where-item-actions">
+                            <button onclick="editWhereClause(${index}, ${whereIndex})" title="Edit">✎</button>
+                            <button class="delete" onclick="deleteWhereClause(${index}, ${whereIndex})" title="Delete">×</button>
+                        </div>
+                    </div>
+                `;
             });
+        } else {
+            html += '<span style="color: #95a5a6; font-style: italic;">None</span>';
+        }
 
-            state.edges.add({
-                from: stmtId,
-                to: colId,
-                label: stmt.statementType === 'DELETE' ? 'affects' : 'modifies'
-            });
-        });
+        // Add WHERE button
+        html += `
+            <div class="add-where-inline" onclick="addWhereClauseToStatement(${index})">
+                + Add WHERE condition
+            </div>
+        `;
 
-        // WHERE clauses
-        stmt.whereClauseElements.forEach((where, whereIdx) => {
-            const whereId = `where_${index}_${whereIdx}`;
-
-            state.nodes.add({
-                id: whereId,
-                label: where,
-                color: colors.where,
-                font: { color: 'white', size: 12 },
-                level: 2,
-                data: {
-                    type: 'where',
-                    value: where,
-                    statementIndex: index,
-                    editable: true
-                }
-            });
-
-            state.edges.add({
-                from: stmtId,
-                to: whereId,
-                label: 'WHERE',
-                dashes: true
-            });
-        });
+        html += `</div></td>`;
+        html += `</tr>`;
     });
 
-    // Fit the view
-    setTimeout(() => {
-        state.network.fit({
-            animation: {
-                duration: 1000,
-                easingFunction: 'easeInOutQuad'
-            }
-        });
-    }, 500);
-}
+    html += `</tbody></table>`;
 
-// Node Click Event
-function onNodeClick(params) {
-    if (params.nodes.length > 0) {
-        const nodeId = params.nodes[0];
-        const node = state.nodes.get(nodeId);
-
-        if (node && node.data) {
-            showNodeDetails(node);
-        }
-    }
-}
-
-// Node Double Click Event
-function onNodeDoubleClick(params) {
-    if (params.nodes.length > 0) {
-        const nodeId = params.nodes[0];
-        const node = state.nodes.get(nodeId);
-
-        if (node && node.data && node.data.editable) {
-            editWhereClause(node);
-        }
-    }
-}
-
-// Show Node Details
-function showNodeDetails(node) {
-    nodeDetails.classList.remove('hidden');
-
-    let html = `<p><strong>Type:</strong> ${node.data.type || 'Statement'}</p>`;
-
-    if (node.data.statementType) {
-        html += `<p><strong>Statement:</strong> ${node.data.statementType}</p>`;
-        html += `<p><strong>Line:</strong> ${node.data.lineNumber}</p>`;
-        html += `<p><strong>Tables:</strong> ${node.data.tables.join(', ')}</p>`;
-        html += `<p><strong>Columns:</strong> ${node.data.columns.join(', ')}</p>`;
-        if (node.data.whereClauseElements.length > 0) {
-            html += `<p><strong>WHERE Conditions:</strong></p><ul>`;
-            node.data.whereClauseElements.forEach(w => {
-                html += `<li style="font-size: 11px; margin-left: 20px;">${w}</li>`;
-            });
-            html += '</ul>';
-        }
-    } else {
-        html += `<p><strong>Value:</strong> ${node.data.value || node.label}</p>`;
-        if (node.data.editable) {
-            html += `<p style="color: #3498db; font-size: 11px; margin-top: 10px;">Double-click to edit</p>`;
-        }
-    }
-
-    nodeDetailsContent.innerHTML = html;
+    resultsContainer.innerHTML = html;
 }
 
 // Edit WHERE Clause
-function editWhereClause(node) {
-    const newValue = prompt('Edit WHERE condition:', node.data.value);
+function editWhereClause(stmtIndex, whereIndex) {
+    const stmt = state.statements[stmtIndex];
+    const currentValue = stmt.whereClauseElements[whereIndex];
 
-    if (newValue && newValue !== node.data.value) {
-        state.nodes.update({
-            id: node.id,
-            label: newValue,
-            data: { ...node.data, value: newValue }
-        });
+    const newValue = prompt('Edit WHERE condition:', currentValue);
 
+    if (newValue && newValue !== currentValue) {
+        stmt.whereClauseElements[whereIndex] = newValue;
+        displayStatementsTable(state.statements, state.selectedProcedure.name);
         setStatus('WHERE condition updated', 'success');
     }
 }
 
-// Add New WHERE Condition
-function addWhereCondition() {
+// Delete WHERE Clause
+function deleteWhereClause(stmtIndex, whereIndex) {
+    if (!confirm('Delete this WHERE condition?')) return;
+
+    state.statements[stmtIndex].whereClauseElements.splice(whereIndex, 1);
+    displayStatementsTable(state.statements, state.selectedProcedure.name);
+    setStatus('WHERE condition deleted', 'success');
+}
+
+// Add WHERE Clause to Specific Statement
+function addWhereClauseToStatement(stmtIndex) {
     const condition = prompt('Enter new WHERE condition:', 'column = value');
 
     if (!condition) return;
 
-    const statementNodes = state.nodes.get({
-        filter: n => n.data && n.data.statementType
-    });
+    if (!state.statements[stmtIndex].whereClauseElements) {
+        state.statements[stmtIndex].whereClauseElements = [];
+    }
 
-    if (statementNodes.length === 0) {
+    state.statements[stmtIndex].whereClauseElements.push(condition);
+    displayStatementsTable(state.statements, state.selectedProcedure.name);
+    setStatus('WHERE condition added', 'success');
+}
+
+// Add WHERE to First Statement (button click)
+function addWhereCondition() {
+    if (state.statements.length === 0) {
         setStatus('No statements to add condition to', 'error');
         return;
     }
 
-    // Add to the first statement (or could show a selector)
-    const stmt = statementNodes[0];
-    const whereId = `where_custom_${state.nodeIdCounter++}`;
-
-    state.nodes.add({
-        id: whereId,
-        label: condition,
-        color: '#f39c12',
-        font: { color: 'white', size: 12 },
-        level: 2,
-        data: {
-            type: 'where',
-            value: condition,
-            statementIndex: stmt.data.statementIndex,
-            editable: true,
-            custom: true
-        }
-    });
-
-    state.edges.add({
-        from: stmt.id,
-        to: whereId,
-        label: 'WHERE (custom)',
-        dashes: true,
-        color: { color: '#f39c12' }
-    });
-
-    setStatus('WHERE condition added', 'success');
+    addWhereClauseToStatement(0);
 }
 
-// Reset View
-function resetView() {
-    if (state.network) {
-        state.network.fit({
-            animation: {
-                duration: 1000,
-                easingFunction: 'easeInOutQuad'
-            }
-        });
+// Export to CSV
+function exportToCSV() {
+    if (state.statements.length === 0) {
+        setStatus('No data to export', 'error');
+        return;
     }
+
+    let csv = 'Statement Type,Line Number,Columns,Tables,WHERE Clause\n';
+
+    state.statements.forEach(stmt => {
+        const columns = (stmt.columns || []).join('; ');
+        const tables = (stmt.tables || []).join('; ');
+        const where = (stmt.whereClauseElements || []).join('; ');
+
+        csv += `"${stmt.statementType}",${stmt.lineNumber},"${escapeCSV(columns)}","${escapeCSV(tables)}","${escapeCSV(where)}"\n`;
+    });
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.selectedProcedure ? state.selectedProcedure.name : 'parsed_statements'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    setStatus('CSV exported successfully', 'success');
 }
 
 // Disconnect
@@ -478,15 +339,17 @@ async function disconnect() {
 
     state.connectionId = null;
     state.selectedProcedure = null;
+    state.statements = [];
     proceduresPanel.classList.add('hidden');
     connectBtn.classList.remove('hidden');
     disconnectBtn.classList.add('hidden');
-    nodeDetails.classList.add('hidden');
 
-    if (state.nodes) {
-        state.nodes.clear();
-        state.edges.clear();
-    }
+    resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 60px 20px; color: #7f8c8d;">
+            <h3 style="margin-bottom: 10px;">No Data</h3>
+            <p>Connect to a database and select a stored procedure to view parsed statements</p>
+        </div>
+    `;
 
     setStatus('Disconnected', 'info');
 }
@@ -502,6 +365,16 @@ function setStatus(message, type = 'info') {
     statusBar.className = `status ${type}`;
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function escapeCSV(text) {
+    return text.replace(/"/g, '""');
+}
+
 // Toggle MySQL warning visibility
 function toggleMySQLWarning() {
     if (dbTypeSelect.value === 'mysql') {
@@ -515,10 +388,9 @@ function toggleMySQLWarning() {
 connectBtn.addEventListener('click', connectToDatabase);
 disconnectBtn.addEventListener('click', disconnect);
 addWhereBtn.addEventListener('click', addWhereCondition);
-resetViewBtn.addEventListener('click', resetView);
+exportCsvBtn.addEventListener('click', exportToCSV);
 dbTypeSelect.addEventListener('change', toggleMySQLWarning);
 
 // Initialize
-initNetwork();
-toggleMySQLWarning(); // Set initial warning state
+toggleMySQLWarning();
 setStatus('Ready - Connect to a database to begin', 'info');
