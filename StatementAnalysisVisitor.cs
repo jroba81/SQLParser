@@ -279,7 +279,20 @@ namespace SQLParser
             else if (expression is InPredicate inPredicate)
             {
                 var column = GetScalarExpressionText(inPredicate.Expression);
-                elements.Add($"{column} IN (...)");
+                var values = new List<string>();
+
+                // Extract values from the IN clause
+                if (inPredicate.Values != null)
+                {
+                    foreach (var value in inPredicate.Values)
+                    {
+                        values.Add(GetScalarExpressionText(value));
+                    }
+                }
+
+                var notIn = inPredicate.NotDefined ? "NOT IN" : "IN";
+                var valuesList = values.Count > 0 ? string.Join(", ", values) : "...";
+                elements.Add($"{column} {notIn} ({valuesList})");
             }
             else if (expression is LikePredicate likePredicate)
             {
